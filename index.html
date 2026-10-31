@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Booth Buddy</title>
+  <meta name="description" content="Talk for 30 seconds after a booth conversation. AI turns it into a contact badge with a ready-to-send LinkedIn note.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112,700;125,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <style>
+    /*
+      Design idea: every person you meet becomes a conference badge on a lanyard.
+      The lanyard color tells you what to do next:
+        amber = follow up, green = done, grey = still needs organizing.
+    */
+    :root {
+      --fog: #e7ecf4;        /* page */
+      --stock: #ffffff;      /* badge card stock */
+      --ink: #13213f;        /* text */
+      --ink-soft: #55607a;   /* secondary text */
+      --rule: #d3dae6;       /* borders */
+      --cobalt: #2f5bff;     /* brand + focus */
+      --mic: #e5484d;        /* the one big button */
+      --amber: #f0a030;      /* lanyard: follow up */
+      --green: #1e9e6a;      /* lanyard: done */
+      --slate: #8a94aa;      /* lanyard: unsorted */
+      --wash: #eef2f9;       /* tinted boxes */
+      --on-cobalt: #ffffff;  /* text on cobalt buttons */
+      --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+      --body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fog: #0e1526; --stock: #172038; --ink: #e9eefb; --ink-soft: #a3adc4; --rule: #2a3552;
+        --cobalt: #8aa4ff; --mic: #e5484d; --amber: #f5b454; --green: #4cc896; --slate: #6f7a93; --wash: #1f2a47; --on-cobalt: #0e1526;
+        color-scheme: dark;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0; background: var(--fog); color: var(--ink);
+      font: 17px/1.5 var(--body);
+      padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+    }
+    main {
+      max-width: 620px; margin: 0 auto;
+      padding-block: 24px 56px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px));
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    button, textarea { font: inherit; color: inherit; }
+    :focus-visible { outline: 3px solid var(--cobalt); outline-offset: 2px; }
+
+    /* ---------- Header ---------- */
+    header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    h1 {
+      margin: 0; font-family: var(--display); font-weight: 800; font-stretch: 125%;
+      font-size: clamp(2rem, 8vw, 2.6rem); line-height: .95; letter-spacing: -.01em;
+    }
+    .tally { display: flex; gap: 8px; }
+    .tally span {
+      font-weight: 700; font-size: .9rem; padding: 5px 12px; border-radius: 999px;
+      background: var(--stock); border: 1px solid var(--rule); font-variant-numeric: tabular-nums;
+    }
+    .tally .todo { border-color: var(--amber); }
+
+    /* ---------- Capture pad ---------- */
+    .pad {
+      background: var(--stock); border-radius: 22px; padding: 18px;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 1px 0 var(--rule), 0 18px 40px -28px rgba(19, 33, 63, .55);
+    }
+    .pad label { font-weight: 700; }
+    textarea {
+      width: 100%; min-height: 140px; padding: 14px; resize: vertical;
+      background: var(--wash); border: 2px solid transparent; border-radius: 14px; line-height: 1.45;
+    }
+    textarea:focus { border-color: var(--cobalt); outline: none; }
+    textarea::placeholder { color: var(--ink-soft); }
+    .tip { margin: 0; color: var(--ink-soft); font-size: .95rem; display: flex; gap: 8px; align-items: center; }
+    .tip svg { flex: none; }
+    .go {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      border: 0; border-radius: 14px; padding: 16px 18px; cursor: pointer;
+      background: var(--mic); color: #fff; font-weight: 700; font-size: 1.1rem;
+    }
+    .go:disabled { opacity: .7; cursor: progress; }
+    #status { margin: 0; min-height: 1.5em; color: var(--ink-soft); }
+    #status.ok { color: var(--green); font-weight: 700; }
+
+    /* ---------- Badges ---------- */
+    #list { display: flex; flex-direction: column; gap: 22px; }
+    .badge {
+      --lanyard: var(--amber);
+      position: relative; background: var(--stock); border-radius: 18px;
+      padding: 30px 18px 16px; display: flex; flex-direction: column; gap: 10px;
+      border-top: 10px solid var(--lanyard);
+      box-shadow: 0 1px 0 var(--rule), 0 14px 30px -24px rgba(19, 33, 63, .6);
+    }
+    .badge.done { --lanyard: var(--green); }
+    .badge.unsorted { --lanyard: var(--slate); }
+    /* the punched slot where a lanyard clip would go */
+    .badge::before {
+      content: ""; position: absolute; top: 10px; left: 50%; width: 46px; height: 9px;
+      transform: translateX(-50%); border-radius: 9px; background: var(--fog);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, .18);
+    }
+    .badge-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .company {
+      margin: 0; font-family: var(--display); font-weight: 700; font-stretch: 112%;
+      font-size: 1.55rem; line-height: 1.05; overflow-wrap: anywhere;
+    }
+    .person { margin: 4px 0 0; color: var(--ink-soft); overflow-wrap: anywhere; }
+    .state {
+      flex: none; font-size: .85rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+      background: color-mix(in srgb, var(--lanyard) 18%, transparent); color: var(--ink);
+    }
+    .points { margin: 0; padding-left: 20px; }
+    .points li + li { margin-top: 2px; }
+    .next { margin: 0; }
+    .next strong { color: var(--ink); }
+    .quote {
+      margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--wash);
+      white-space: pre-wrap; overflow-wrap: anywhere;
+    }
+    .met { margin: 0; font-size: .85rem; color: var(--ink-soft); }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+    .btn {
+      border: 1px solid var(--rule); background: transparent; border-radius: 10px;
+      padding: 9px 14px; font-weight: 700; font-size: .95rem; cursor: pointer;
+    }
+    .btn.main { background: var(--cobalt); border-color: var(--cobalt); color: var(--on-cobalt); }
+    .btn.quiet { border-color: transparent; color: var(--ink-soft); }
+    .btn.armed { border-color: var(--mic); color: var(--mic); }
+    .btn:disabled { opacity: .6; }
+
+    .empty {
+      margin: 0; padding: 22px; border: 2px dashed var(--rule); border-radius: 18px;
+      color: var(--ink-soft); text-align: center;
+    }
+
+    /* One motion moment: a new badge swings in like it was just clipped on. */
+    @media (prefers-reduced-motion: no-preference) {
+      .badge.new { animation: clip-on .5s cubic-bezier(.2, .9, .3, 1.3); transform-origin: 50% 0; }
+      @keyframes clip-on { from { transform: rotate(-4deg) translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+    }
+
+    /* ---------- Laptop: pad on the left stays put, badges on the right ---------- */
+    @media (min-width: 900px) {
+      main { max-width: 1080px; display: grid; grid-template-columns: 400px 1fr; column-gap: 28px; align-items: start; }
+      header { grid-column: 1 / -1; }
+      .pad { position: sticky; top: 24px; }
+      #list { grid-column: 2; grid-row: 2; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Booth Buddy</h1>
+      <div class="tally" aria-live="polite">
+        <span id="metCount">0 met</span>
+        <span class="todo" id="todoCount">0 to follow up</span>
+      </div>
+    </header>
+
+    <section class="pad">
+      <label for="notes">Who did you just meet?</label>
+      <textarea id="notes" autofocus
+        placeholder="Maya, campus recruiter at Capital One. Summer 2027 apps open in January. Connect on LinkedIn tonight."></textarea>
+      <p class="tip">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        Tap the mic on your keyboard and talk. Stop whenever you're done.
+      </p>
+      <button class="go" id="saveBtn">Organize and save</button>
+      <p id="status" role="status"></p>
+    </section>
+
+    <div id="list"></div>
+  </main>
+
+  <script>
+    // ---------- Storage (this browser only) ----------
+    const KEY = "boothbuddy.contacts";
+    const DRAFT_KEY = "boothbuddy.draft";
+    let contacts = load();
+    let newestId = null;
+
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
+    }
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(contacts)); } catch {}
+    }
+
+    // ---------- Keep the draft if the page closes mid-note ----------
+    const notesBox = document.getElementById("notes");
+    try { notesBox.value = localStorage.getItem(DRAFT_KEY) || ""; } catch {}
+    notesBox.addEventListener("input", () => {
+      try { localStorage.setItem(DRAFT_KEY, notesBox.value); } catch {}
+    });
+    function clearDraft() {
+      notesBox.value = "";
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+    }
+
+    // ---------- Ask our server (which asks the AI) to organize notes ----------
+    async function organize(notes) {
+      const res = await fetch("/api/organize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ notes }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Request failed");
+      return data;
+    }
+
+    // ---------- Main button: save first, organize second, never lose a note ----------
+    const saveBtn = document.getElementById("saveBtn");
+    const status = document.getElementById("status");
+
+    function setStatus(message, ok = false) {
+      status.textContent = message;
+      status.className = ok ? "ok" : "";
+    }
+
+    saveBtn.onclick = async () => {
+      const notes = notesBox.value.trim();
+      if (!notes) { setStatus("Say or type a few words first."); notesBox.focus(); return; }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Organizing...";
+
+      // Save the raw note right away, so a Wi-Fi drop can't lose it.
+      const contact = { id: Date.now().toString(36), raw: notes, unsorted: true, done: false, savedAt: Date.now() };
+      contacts.unshift(contact);
+      newestId = contact.id;
+      save();
+      clearDraft();
+      render();
+
+      try {
+        Object.assign(contact, await organize(notes), { unsorted: false });
+        setStatus("Saved " + (contact.company || contact.name || "your note") + ".", true);
+      } catch {
+        setStatus("No connection, so it's saved as unsorted. Tap Organize on it later.");
+      }
+      save();
+      render();
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Organize and save";
+    };
+
+    // Ctrl/Cmd + Enter also saves on a laptop.
+    notesBox.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveBtn.click();
+    });
+
+    // ---------- Small helpers ----------
+    function el(tag, cls, value) {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (value != null) node.textContent = value; // textContent keeps odd characters harmless
+      return node;
+    }
+    function btn(label, cls, onClick) {
+      const b = el("button", "btn " + cls, label);
+      b.onclick = onClick;
+      return b;
+    }
+    function metLabel(ts) {
+      const d = new Date(ts);
+      return "Met " + d.toLocaleDateString([], { weekday: "short" }) + " at " +
+        d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    // ---------- Draw the badges ----------
+    function render() {
+      const list = document.getElementById("list");
+      list.replaceChildren();
+
+      const todo = contacts.filter((c) => !c.done).length;
+      document.getElementById("metCount").textContent = contacts.length + " met";
+      document.getElementById("todoCount").textContent = todo + " to follow up";
+
+      if (!contacts.length) {
+        list.appendChild(el("p", "empty",
+          "Your badges show up here. After each booth, talk into the box and tap Organize and save."));
+        return;
+      }
+
+      for (const c of contacts) {
+        const card = el("article", "badge" + (c.done ? " done" : "") + (c.unsorted ? " unsorted" : "") + (c.id === newestId ? " new" : ""));
+
+        const head = el("div", "badge-head");
+        const who = el("div");
+        who.appendChild(el("h2", "company", c.unsorted ? "Unsorted note" : (c.company || "Company not caught")));
+        const person = [c.name, c.role].filter(Boolean).join(", ");
+        if (!c.unsorted && person) who.appendChild(el("p", "person", person));
+        head.append(who, el("span", "state", c.unsorted ? "Needs organizing" : c.done ? "Followed up" : "Follow up"));
+        card.appendChild(head);
+
+        if (c.unsorted) {
+          card.appendChild(el("p", "quote", c.raw));
+        } else {
+          if (c.points?.length) {
+            const ul = el("ul", "points");
+            c.points.forEach((p) => ul.appendChild(el("li", null, p)));
+            card.appendChild(ul);
+          }
+          if (c.next) {
+            const next = el("p", "next");
+            next.append(el("strong", null, "Next: "), document.createTextNode(c.next));
+            card.appendChild(next);
+          }
+          if (c.linkedin) card.appendChild(el("p", "quote", c.linkedin));
+        }
+        card.appendChild(el("p", "met", metLabel(c.savedAt)));
+
+        const actions = el("div", "actions");
+        if (c.unsorted) {
+          actions.appendChild(btn("Organize", "main", async (e) => {
+            e.target.disabled = true; e.target.textContent = "Organizing...";
+            try { Object.assign(c, await organize(c.raw), { unsorted: false }); save(); setStatus("Organized.", true); }
+            catch { setStatus("Still no connection. Try again in a minute."); }
+            render();
+          }));
+        } else if (c.linkedin) {
+          actions.appendChild(btn("Copy LinkedIn note", "main", async (e) => {
+            try { await navigator.clipboard.writeText(c.linkedin); e.target.textContent = "Copied"; }
+            catch { e.target.textContent = "Press and hold the note to copy"; }
+          }));
+        }
+        actions.appendChild(btn(c.done ? "Undo" : "Mark followed up", "", () => {
+          c.done = !c.done; newestId = null; save(); render();
+        }));
+        actions.appendChild(btn("Delete", "quiet", (e) => {
+          // Two taps to delete, so nobody disappears by accident.
+          if (e.target.classList.contains("armed")) {
+            contacts = contacts.filter((x) => x.id !== c.id); newestId = null; save(); render();
+          } else {
+            e.target.classList.add("armed"); e.target.textContent = "Tap again to delete";
+          }
+        }));
+        card.appendChild(actions);
+        list.appendChild(card);
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
