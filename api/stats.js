@@ -19,6 +19,14 @@ export default async function handler(req, res) {
   }
   const results = (await redis(commands)).map((r) => Number(r.result || 0));
 
+  // Returning users: devices that used the app on 2 or more different days.
+  const [{ result: userIds = [] }] = await redis([["SMEMBERS", "bb:users"]]);
+  let returningUsers = 0;
+  if (userIds.length) {
+    const dayCounts = await redis(userIds.map((id) => ["SCARD", `bb:days:${id}`]));
+    returningUsers = dayCounts.filter((r) => Number(r.result) >= 2).length;
+  }
+
   const byDay = days
     .map((day, i) => ({ day, users: results[2 + i * 2], notes: results[3 + i * 2] }))
     .filter((d) => d.users || d.notes);
@@ -26,6 +34,8 @@ export default async function handler(req, res) {
   return res.status(200).json({
     totalUsers: results[0],
     totalNotes: results[1],
+    returningUsers,
+    returningRate: results[0] ? Math.round((returningUsers / results[0]) * 100) + "%" : "0%",
     byDay,
   });
 }
