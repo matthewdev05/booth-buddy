@@ -1,4 +1,5 @@
 // api/organize.js
+import { countUsage } from "../lib/redis.js";
 // A Vercel serverless function. It runs on Vercel's servers, not in the browser,
 // so your API key stays secret. The web page sends your notes here, this file
 // asks Claude to organize them, and sends back clean JSON.
@@ -69,6 +70,10 @@ Use "" for anything the notes don't say. Never invent names or facts.
       return res.status(502).json({ error: "AI reply had no JSON" });
     }
     const contact = JSON.parse(text.slice(start, end + 1));
+
+    // Count anonymous users and notes for the stats page.
+    await countUsage(req.body?.uid);
+
     return res.status(200).json(contact);
   } catch (err) {
     return res.status(500).json({ error: "Something went wrong: " + err.message });

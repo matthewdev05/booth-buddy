@@ -210,7 +210,19 @@
     }
 
     // ---------- Ask our server (which asks the AI) to organize notes ----------
-        function getCode() {
+    // A random ID for this device, so the stats can count users without knowing who they are.
+    function getUserId() {
+      try {
+        let id = localStorage.getItem("boothbuddy.uid");
+        if (!id) {
+          id = crypto.randomUUID();
+          localStorage.setItem("boothbuddy.uid", id);
+        }
+        return id;
+      } catch { return ""; }
+    }
+
+    function getCode() {
       try { return localStorage.getItem("boothbuddy.code") || ""; } catch { return ""; }
     }
 
@@ -225,7 +237,7 @@
       const res = await fetch("/api/organize", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ notes, code }),
+        body: JSON.stringify({ notes, code, uid: getUserId() }),
       });
       const data = await res.json();
 
