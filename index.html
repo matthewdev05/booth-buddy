@@ -210,16 +210,33 @@
     }
 
     // ---------- Ask our server (which asks the AI) to organize notes ----------
+        function getCode() {
+      try { return localStorage.getItem("boothbuddy.code") || ""; } catch { return ""; }
+    }
+
     async function organize(notes) {
+      // Ask for the access code once, then remember it on this phone.
+      let code = getCode();
+      if (!code) {
+        code = (prompt("Enter the access code") || "").trim();
+        try { localStorage.setItem("boothbuddy.code", code); } catch {}
+      }
+
       const res = await fetch("/api/organize", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ notes, code }),
       });
       const data = await res.json();
+
+      if (res.status === 401) {
+        try { localStorage.removeItem("boothbuddy.code"); } catch {} // ask again next time
+        throw new Error("Wrong access code");
+      }
       if (!res.ok) throw new Error(data.error || "Request failed");
       return data;
     }
+  
 
     // ---------- Main button: save first, organize second, never lose a note ----------
     const saveBtn = document.getElementById("saveBtn");
@@ -248,8 +265,10 @@
       try {
         Object.assign(contact, await organize(notes), { unsorted: false });
         setStatus("Saved " + (contact.company || contact.name || "your note") + ".", true);
-      } catch {
-        setStatus("No connection, so it's saved as unsorted. Tap Organize on it later.");
+      } catch (err) {
+        setStatus(err.message === "Wrong access code"
+          ? "Wrong access code. Tap Organize on the note to try again."
+          : "No connection, so it's saved as unsorted. Tap Organize on it later.");
       }
       save();
       render();
