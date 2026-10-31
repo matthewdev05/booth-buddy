@@ -8,7 +8,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Use POST" });
   }
 
-  ATX26
+  // Only people with the access code can use the AI (protects my API credit).
+  const code = (req.body?.code || "").trim().toUpperCase();
+  if (process.env.ACCESS_CODE && code !== process.env.ACCESS_CODE.trim().toUpperCase()) {
+    return res.status(401).json({ error: "Wrong access code" });
+  }
+
   const notes = (req.body?.notes || "").trim();
   if (!notes) {
     return res.status(400).json({ error: "No notes sent" });
