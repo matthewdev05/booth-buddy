@@ -13,8 +13,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "No notes sent" });
   }
 
-  const prompt = `You help a college student organize quick voice notes taken right after
-talking to a recruiter at a tech conference. The notes may be messy dictated speech.
+  const prompt = `You help a college student organize quick voice notes taken right after talking to a recruiter at AfroTech 2026, a tech conference in Houston. The notes may be messy dictated speech.
+
 
 Notes:
 """${notes.slice(0, 4000)}"""
@@ -27,7 +27,7 @@ Use "" for anything the notes don't say. Never invent names or facts.
   "role": "their job or team",
   "points": ["2-4 short key points they said"],
   "next": "the one next step",
-  "linkedin": "a friendly LinkedIn connection note under 280 characters that mentions meeting at AfroTech and one specific detail"
+  "linkedin": "a friendly LinkedIn connection note under 280 characters. It must say we met at AfroTech and mention one specific detail from the notes"
 }`;
 
   try {
