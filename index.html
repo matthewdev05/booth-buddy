@@ -150,12 +150,53 @@
       @keyframes clip-on { from { transform: rotate(-4deg) translateY(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
     }
 
+    /* ---------- Tabs: People / Companies ---------- */
+    .tabs { display: flex; gap: 4px; padding: 4px; background: var(--stock); border: 1px solid var(--rule); border-radius: 14px; }
+    .tab { flex: 1; border: 0; background: transparent; border-radius: 10px; padding: 10px 12px;
+           font-weight: 700; cursor: pointer; color: var(--ink-soft); }
+    .tab[aria-selected="true"] { background: var(--ink); color: var(--stock); }
+    body[data-view="companies"] .pad, body[data-view="companies"] #list { display: none; }
+    body:not([data-view="companies"]) #companies { display: none; }
+
+    /* ---------- Companies ---------- */
+    #companies { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .co-tools { display: flex; flex-direction: column; gap: 10px; }
+    .search { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--rule);
+              background: var(--stock); font: inherit; color: inherit; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .chip { border: 1px solid var(--rule); background: var(--stock); border-radius: 999px; padding: 7px 12px;
+            font-weight: 700; font-size: .9rem; cursor: pointer; }
+    .chip[aria-pressed="true"] { background: var(--cobalt); border-color: var(--cobalt); color: var(--on-cobalt); }
+    .filters select { border: 1px solid var(--rule); background: var(--stock); border-radius: 999px;
+                      padding: 7px 12px; font: 700 .9rem var(--body); color: var(--ink); }
+    .progress { background: var(--stock); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .progress p { margin: 0; font-weight: 700; }
+    .bar { height: 10px; border-radius: 10px; background: var(--wash); overflow: hidden; }
+    .bar span { display: block; height: 100%; background: var(--green); border-radius: 10px; transition: width .3s; }
+    .industry { margin: 8px 0 -4px; font-family: var(--display); font-weight: 700; font-size: 1.05rem; color: var(--ink-soft); }
+    .co-card { background: var(--stock); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px;
+               border-left: 6px solid transparent; box-shadow: 0 1px 0 var(--rule); }
+    .co-card.mine { border-left-color: var(--amber); }
+    .co-card.visited { border-left-color: var(--green); }
+    .co-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .co-name { margin: 0; font-family: var(--display); font-weight: 700; font-stretch: 112%; font-size: 1.25rem; line-height: 1.1; }
+    .co-where { margin: 2px 0 0; color: var(--ink-soft); font-size: .9rem; }
+    .co-about { margin: 0; }
+    .tag { flex: none; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+           background: color-mix(in srgb, var(--cobalt) 16%, transparent); }
+    details.qs summary { cursor: pointer; font-weight: 700; color: var(--cobalt); }
+    details.qs ol { margin: 8px 0 0; padding-left: 20px; }
+    .btn.on { background: var(--wash); border-color: var(--ink-soft); }
+    .none { margin: 0; padding: 22px; border: 2px dashed var(--rule); border-radius: 16px; color: var(--ink-soft); text-align: center; }
+
     /* ---------- Laptop: pad on the left stays put, badges on the right ---------- */
     @media (min-width: 900px) {
       main { max-width: 1080px; display: grid; grid-template-columns: 400px 1fr; column-gap: 28px; align-items: start; }
       header { grid-column: 1 / -1; }
+      .tabs { grid-column: 1 / -1; justify-self: start; width: 400px; }
       .pad { position: sticky; top: 24px; }
-      #list { grid-column: 2; grid-row: 2; }
+      #list { grid-column: 2; grid-row: 3; }
+      #companies { grid-column: 1 / -1; max-width: 760px; }
     }
   </style>
 </head>
@@ -168,6 +209,11 @@
         <span class="todo" id="todoCount">0 to follow up</span>
       </div>
     </header>
+
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="tabPeople" aria-selected="true">People</button>
+      <button class="tab" role="tab" id="tabCompanies" aria-selected="false">Companies</button>
+    </nav>
 
     <section class="pad">
       <label for="notes">Who did you just meet?</label>
@@ -182,7 +228,23 @@
     </section>
 
     <div id="list"></div>
+
+    <section id="companies" aria-label="AfroTech companies">
+      <div class="progress" id="coProgress"></div>
+      <div class="co-tools">
+        <input class="search" id="coSearch" type="search" placeholder="Search companies" aria-label="Search companies">
+        <div class="filters">
+          <button class="chip" data-filter="all" aria-pressed="true">All</button>
+          <button class="chip" data-filter="mine" aria-pressed="false">My list</button>
+          <button class="chip" data-filter="suggested" aria-pressed="false">Suggested for software</button>
+          <select id="coIndustry" aria-label="Industry"><option value="">All industries</option></select>
+        </div>
+      </div>
+      <div id="coList" style="display:flex; flex-direction:column; gap:12px;"></div>
+    </section>
   </main>
+
+  <script src="companies.js"></script>
 
   <script>
     // ---------- Storage (this browser only) ----------
@@ -385,6 +447,146 @@
     }
 
     render();
+
+    // ---------- Companies tab: pick who to visit, track who you've seen ----------
+    const CO_KEY = "boothbuddy.companies";
+    const VIEW_KEY = "boothbuddy.view";
+    const COMPANIES = window.COMPANIES || [];
+    let coState = loadCompanies(); // { "Capital One": { mine: true, visited: false } }
+    let coFilter = "all";
+    let coIndustry = "";
+    let coQuery = "";
+
+    function loadCompanies() {
+      try { return JSON.parse(localStorage.getItem(CO_KEY) || "{}"); } catch { return {}; }
+    }
+    function saveCompanies() {
+      try { localStorage.setItem(CO_KEY, JSON.stringify(coState)); } catch {}
+    }
+    function stateOf(name) {
+      return coState[name] || (coState[name] = { mine: false, visited: false });
+    }
+
+    function showView(view) {
+      document.body.dataset.view = view;
+      document.getElementById("tabPeople").setAttribute("aria-selected", view === "people");
+      document.getElementById("tabCompanies").setAttribute("aria-selected", view === "companies");
+      try { localStorage.setItem(VIEW_KEY, view); } catch {}
+      if (view === "companies") renderCompanies();
+    }
+    document.getElementById("tabPeople").onclick = () => showView("people");
+    document.getElementById("tabCompanies").onclick = () => showView("companies");
+
+    // Industry dropdown, in the same order as the list
+    const industrySelect = document.getElementById("coIndustry");
+    [...new Set(COMPANIES.map((c) => c.industry))].forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name; opt.textContent = name;
+      industrySelect.appendChild(opt);
+    });
+    industrySelect.onchange = () => { coIndustry = industrySelect.value; renderCompanies(); };
+    document.getElementById("coSearch").addEventListener("input", (e) => {
+      coQuery = e.target.value.trim().toLowerCase(); renderCompanies();
+    });
+    document.querySelectorAll(".chip[data-filter]").forEach((chip) => {
+      chip.onclick = () => {
+        coFilter = chip.dataset.filter;
+        document.querySelectorAll(".chip[data-filter]").forEach((c) =>
+          c.setAttribute("aria-pressed", c === chip));
+        renderCompanies();
+      };
+    });
+
+    // Jump to the note box with the company already filled in
+    function writeNoteFor(name) {
+      stateOf(name).visited = true;
+      saveCompanies();
+      showView("people");
+      notesBox.value = "At " + name + ": ";
+      notesBox.dispatchEvent(new Event("input")); // keeps the draft saved
+      notesBox.focus();
+      notesBox.setSelectionRange(notesBox.value.length, notesBox.value.length);
+    }
+
+    function renderCompanies() {
+      // Progress on your list
+      const mine = COMPANIES.filter((c) => stateOf(c.name).mine);
+      const seen = mine.filter((c) => stateOf(c.name).visited).length;
+      const progress = document.getElementById("coProgress");
+      progress.replaceChildren();
+      if (mine.length) {
+        progress.appendChild(el("p", null, `My list: ${seen} of ${mine.length} visited`));
+        const bar = el("div", "bar");
+        const fill = el("span");
+        fill.style.width = Math.round((seen / mine.length) * 100) + "%";
+        bar.appendChild(fill);
+        progress.appendChild(bar);
+      } else {
+        progress.appendChild(el("p", null, "Tap \"Add to my list\" on the companies you want to visit."));
+      }
+
+      // Filter
+      const shown = COMPANIES.filter((c) => {
+        const st = stateOf(c.name);
+        if (coFilter === "mine" && !st.mine) return false;
+        if (coFilter === "suggested" && !c.suggested) return false;
+        if (coIndustry && c.industry !== coIndustry) return false;
+        if (coQuery && !(c.name + " " + c.about + " " + c.industry).toLowerCase().includes(coQuery)) return false;
+        return true;
+      });
+
+      const list = document.getElementById("coList");
+      list.replaceChildren();
+      if (!shown.length) {
+        list.appendChild(el("p", "none", coFilter === "mine"
+          ? "Your list is empty. Switch to All and add the companies you want to visit."
+          : "No companies match that search."));
+        return;
+      }
+
+      let currentIndustry = null;
+      for (const c of shown) {
+        if (c.industry !== currentIndustry) {
+          currentIndustry = c.industry;
+          list.appendChild(el("h3", "industry", c.industry));
+        }
+        const st = stateOf(c.name);
+        const card = el("article", "co-card" + (st.visited ? " visited" : st.mine ? " mine" : ""));
+
+        const head = el("div", "co-head");
+        const left = el("div");
+        left.appendChild(el("h4", "co-name", c.name));
+        if (c.where) left.appendChild(el("p", "co-where", c.where));
+        head.appendChild(left);
+        if (c.suggested) head.appendChild(el("span", "tag", "Software pick"));
+        card.appendChild(head);
+
+        card.appendChild(el("p", "co-about", c.about));
+
+        const qs = el("details", "qs");
+        qs.appendChild(el("summary", null, "Questions to ask"));
+        const ol = el("ol");
+        c.questions.forEach((q) => ol.appendChild(el("li", null, q)));
+        qs.appendChild(ol);
+        card.appendChild(qs);
+
+        const actions = el("div", "actions");
+        actions.appendChild(btn(st.mine ? "On my list" : "Add to my list", st.mine ? "on" : "main", () => {
+          st.mine = !st.mine; saveCompanies(); renderCompanies();
+        }));
+        actions.appendChild(btn(st.visited ? "Visited" : "Mark visited", st.visited ? "on" : "", () => {
+          st.visited = !st.visited; saveCompanies(); renderCompanies();
+        }));
+        actions.appendChild(btn("Write a note", "quiet", () => writeNoteFor(c.name)));
+        card.appendChild(actions);
+
+        list.appendChild(card);
+      }
+    }
+
+    let startView = "people";
+    try { startView = localStorage.getItem(VIEW_KEY) || "people"; } catch {}
+    showView(startView);
   </script>
   <!-- Vercel Web Analytics: counts visits anonymously, never sees notes -->
   <script defer src="/_vercel/insights/script.js"></script>
