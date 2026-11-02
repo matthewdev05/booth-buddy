@@ -184,9 +184,8 @@
     .co-about { margin: 0; }
     .tag { flex: none; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
            background: color-mix(in srgb, var(--cobalt) 16%, transparent); }
-    .topics { display: flex; flex-direction: column; gap: 8px; }
-    .topics strong { color: var(--cobalt); font-size: .95rem; }
-    .topics ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+    .topics summary { cursor: pointer; font-weight: 700; color: var(--cobalt); font-size: .95rem; width: fit-content; }
+    .topics ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
     .topics li { background: var(--wash); border-radius: 8px; padding: 5px 10px; font-size: .92rem; }
     .btn.on { background: var(--wash); border-color: var(--ink-soft); }
     .none { margin: 0; padding: 22px; border: 2px dashed var(--rule); border-radius: 16px; color: var(--ink-soft); text-align: center; }
@@ -565,8 +564,9 @@
 
         card.appendChild(el("p", "co-about", c.about));
 
-        const topics = el("div", "topics");
-        topics.appendChild(el("strong", null, "Ask about"));
+        // Optional: hidden until the person taps to open it
+        const topics = el("details", "topics");
+        topics.appendChild(el("summary", null, "Conversation starters"));
         const tagList = el("ul");
         c.topics.forEach((t) => tagList.appendChild(el("li", null, t)));
         topics.appendChild(tagList);
