@@ -20,11 +20,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "No notes sent" });
   }
 
-  const prompt = `You help a college student organize quick voice notes taken right after talking to a recruiter at AfroTech 2026, a tech conference in Houston. The notes may be messy dictated speech.
+  const prompt = `You help a college student organize quick voice notes taken right after talking to a recruiter at AfroTech 2026, a tech conference in Houston. The notes may be messy dictated speech, or a rough live transcript of the whole conversation that includes the student’s own words. Pull out the details about the person the student met.
 
 
 Notes:
-"""${notes.slice(0, 4000)}"""
+"""${notes.slice(0, 12000)}"""
 
 Reply with ONLY a JSON object, no other text, in exactly this shape.
 Use "" for anything the notes don't say. Never invent names or facts.
