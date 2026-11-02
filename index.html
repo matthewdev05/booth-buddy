@@ -40,6 +40,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; } /* hidden always wins over display rules */
     html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0; background: var(--fog); color: var(--ink);
@@ -92,6 +93,21 @@
     .go:disabled { opacity: .7; cursor: progress; }
     #status { margin: 0; min-height: 1.5em; color: var(--ink-soft); }
     #status.ok { color: var(--green); font-weight: 700; }
+
+    /* ---------- Live notes ---------- */
+    .live-btn { display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid var(--mic);
+                background: transparent; color: var(--mic); border-radius: 14px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
+    .live-panel { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--wash); }
+    .live-panel p { margin: 0; }
+    .live-panel .ask { font-weight: 700; }
+    .live-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .live-on { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--mic); }
+    .live-on .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--mic); flex: none; }
+    @media (prefers-reduced-motion: no-preference) {
+      .live-on .dot { animation: pulse 1.2s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: .3; } }
+    }
+    .live-time { font-variant-numeric: tabular-nums; margin-left: auto; color: var(--ink); }
 
     /* ---------- Badges ---------- */
     #list { display: flex; flex-direction: column; gap: 22px; }
@@ -224,6 +240,23 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
         Tap the mic on your keyboard and talk. Stop whenever you're done.
       </p>
+      <button class="live-btn" id="liveBtn" hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        Live notes during a conversation
+      </button>
+      <div class="live-panel" id="liveAsk" hidden>
+        <p class="ask">Ask first: "Mind if my app takes notes while we talk?"</p>
+        <p>Only start if they say yes. The app writes text only and never saves audio.</p>
+        <div class="live-row">
+          <button class="btn main" id="liveStart">They said yes, start</button>
+          <button class="btn quiet" id="liveCancel">Cancel</button>
+        </div>
+      </div>
+      <div class="live-panel" id="liveOn" hidden>
+        <div class="live-on" role="status"><span class="dot" aria-hidden="true"></span>Taking notes<span class="live-time" id="liveTime">0:00</span></div>
+        <p>Keep the phone in your hand or on the table with the screen on. Words appear in the box above.</p>
+        <div class="live-row"><button class="btn main" id="liveStop">Stop</button></div>
+      </div>
       <button class="go" id="saveBtn">Organize and save</button>
       <p id="status" role="status"></p>
     </section>
@@ -350,6 +383,88 @@
       saveBtn.disabled = false;
       saveBtn.textContent = "Organize and save";
     };
+
+    // ---------- Live notes: the phone's own speech recognition, with the other person's OK ----------
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const liveBtn = document.getElementById("liveBtn");
+    const liveAsk = document.getElementById("liveAsk");
+    const liveOn = document.getElementById("liveOn");
+    const liveTime = document.getElementById("liveTime");
+    const LIVE_MAX_MS = 10 * 60 * 1000; // stop on its own after 10 minutes
+    let live = null; // { rec, start, finalText, base, timer, wakeLock }
+
+    if (Recognition) liveBtn.hidden = false;
+
+    function showLive(panel) {
+      liveBtn.hidden = panel !== "button" || !Recognition;
+      liveAsk.hidden = panel !== "ask";
+      liveOn.hidden = panel !== "on";
+      saveBtn.hidden = panel === "on";
+    }
+
+    liveBtn.onclick = () => showLive("ask");
+    document.getElementById("liveCancel").onclick = () => showLive("button");
+    document.getElementById("liveStart").onclick = startLive;
+    document.getElementById("liveStop").onclick = () => stopLive();
+
+    function startLive() {
+      const rec = new Recognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+
+      const base = notesBox.value.trim();
+      live = { rec, start: Date.now(), finalText: "", base: base ? base + "\n\n" : "", timer: null, wakeLock: null };
+
+      rec.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const piece = event.results[i][0].transcript;
+          if (event.results[i].isFinal) live.finalText += piece.trim() + " ";
+          else interim += piece;
+        }
+        notesBox.value = live.base + "Conversation notes: " + live.finalText + interim;
+        notesBox.dispatchEvent(new Event("input")); // keep the draft saved as it grows
+      };
+      rec.onerror = (event) => {
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          stopLive("The microphone is blocked. Allow it for this site in your browser settings, then try again.");
+        }
+      };
+      // Phones end recognition after pauses; keep listening until Stop is tapped.
+      rec.onend = () => { if (live && live.rec === rec) { try { rec.start(); } catch {} } };
+
+      try { rec.start(); } catch { live = null; showLive("button"); setStatus("Live notes couldn't start. Try again, or use the keyboard mic."); return; }
+
+      live.timer = setInterval(() => {
+        if (!live) return;
+        const ms = Date.now() - live.start;
+        const sec = Math.floor(ms / 1000);
+        liveTime.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+        if (ms >= LIVE_MAX_MS) stopLive("Stopped after 10 minutes. Tap Organize and save.");
+      }, 500);
+
+      // Keep the screen awake while listening (not every browser allows this).
+      if (navigator.wakeLock) {
+        navigator.wakeLock.request("screen").then((lock) => { if (live) live.wakeLock = lock; else lock.release(); }).catch(() => {});
+      }
+
+      setStatus("");
+      showLive("on");
+    }
+
+    function stopLive(message) {
+      if (!live) { showLive("button"); return; }
+      const { rec, timer, wakeLock } = live;
+      live = null; // cleared first so onend doesn't restart listening
+      clearInterval(timer);
+      try { rec.stop(); } catch {}
+      if (wakeLock) wakeLock.release().catch(() => {});
+      notesBox.value = notesBox.value.trim();
+      notesBox.dispatchEvent(new Event("input"));
+      showLive("button");
+      setStatus(message || (notesBox.value ? "Notes captured. Check them, then tap Organize and save." : "Didn't catch anything. Try again closer to the person speaking."));
+    }
 
     // Ctrl/Cmd + Enter also saves on a laptop.
     notesBox.addEventListener("keydown", (e) => {
