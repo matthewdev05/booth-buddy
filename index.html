@@ -566,7 +566,7 @@
 
         // Optional: hidden until the person taps to open it
         const topics = el("details", "topics");
-        topics.appendChild(el("summary", null, "Conversation starters"));
+        topics.appendChild(el("summary", null, "Ideas for your chat"));
         const tagList = el("ul");
         c.topics.forEach((t) => tagList.appendChild(el("li", null, t)));
         topics.appendChild(tagList);
