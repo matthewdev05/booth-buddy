@@ -196,7 +196,7 @@
     .co-card.visited { border-left-color: var(--green); }
     .co-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
     .co-name { margin: 0; font-family: var(--display); font-weight: 700; font-stretch: 112%; font-size: 1.25rem; line-height: 1.1; }
-    .co-where { margin: 2px 0 0; color: var(--ink-soft); font-size: .9rem; }
+    .co-where { margin: 3px 0 0; color: var(--ink-soft); font-size: .92rem; font-weight: 700; }
     .co-about { margin: 0; }
     .tag { flex: none; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
            background: color-mix(in srgb, var(--cobalt) 16%, transparent); }
@@ -266,7 +266,7 @@
     <section id="companies" aria-label="AfroTech companies">
       <div class="progress" id="coProgress"></div>
       <div class="co-tools">
-        <input class="search" id="coSearch" type="search" placeholder="Search companies" aria-label="Search companies">
+        <input class="search" id="coSearch" type="search" placeholder="Search companies or booth #" aria-label="Search companies">
         <div class="filters">
           <button class="chip" data-filter="all" aria-pressed="true">All</button>
           <button class="chip" data-filter="mine" aria-pressed="false">My list</button>
@@ -647,7 +647,7 @@
         if (coFilter === "mine" && !st.mine) return false;
         if (coFilter === "suggested" && !c.suggested) return false;
         if (coIndustry && c.industry !== coIndustry) return false;
-        if (coQuery && !(c.name + " " + c.about + " " + c.industry + " " + c.topics.join(" ")).toLowerCase().includes(coQuery)) return false;
+        if (coQuery && !(c.name + " " + c.about + " " + c.industry + " " + c.topics.join(" ") + " booth " + (c.booth || "") + " " + (c.where || "")).toLowerCase().includes(coQuery)) return false;
         return true;
       });
 
@@ -672,7 +672,8 @@
         const head = el("div", "co-head");
         const left = el("div");
         left.appendChild(el("h4", "co-name", c.name));
-        if (c.where) left.appendChild(el("p", "co-where", c.where));
+        const place = [c.booth ? "Booth " + c.booth : "", c.where || ""].filter(Boolean).join(" · ");
+        if (place) left.appendChild(el("p", "co-where", place));
         head.appendChild(left);
         if (c.suggested) head.appendChild(el("span", "tag", "Software pick"));
         card.appendChild(head);

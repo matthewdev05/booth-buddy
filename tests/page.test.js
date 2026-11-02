@@ -43,5 +43,6 @@ test("every company has the fields the page needs", () => {
   for (const c of companies) {
     assert.ok(c.name && c.industry && c.about, c.name);
     assert.equal(c.topics.length, 5, `${c.name} should have 5 topics`);
+    if (c.booth) assert.match(c.booth, /^[A-Z]?\d+[A-Z]?$/, `${c.name} has an odd booth number`);
   }
 });
