@@ -184,8 +184,10 @@
     .co-about { margin: 0; }
     .tag { flex: none; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
            background: color-mix(in srgb, var(--cobalt) 16%, transparent); }
-    details.qs summary { cursor: pointer; font-weight: 700; color: var(--cobalt); }
-    details.qs ol { margin: 8px 0 0; padding-left: 20px; }
+    .topics { display: flex; flex-direction: column; gap: 8px; }
+    .topics strong { color: var(--cobalt); font-size: .95rem; }
+    .topics ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+    .topics li { background: var(--wash); border-radius: 8px; padding: 5px 10px; font-size: .92rem; }
     .btn.on { background: var(--wash); border-color: var(--ink-soft); }
     .none { margin: 0; padding: 22px; border: 2px dashed var(--rule); border-radius: 16px; color: var(--ink-soft); text-align: center; }
 
@@ -531,7 +533,7 @@
         if (coFilter === "mine" && !st.mine) return false;
         if (coFilter === "suggested" && !c.suggested) return false;
         if (coIndustry && c.industry !== coIndustry) return false;
-        if (coQuery && !(c.name + " " + c.about + " " + c.industry).toLowerCase().includes(coQuery)) return false;
+        if (coQuery && !(c.name + " " + c.about + " " + c.industry + " " + c.topics.join(" ")).toLowerCase().includes(coQuery)) return false;
         return true;
       });
 
@@ -563,12 +565,12 @@
 
         card.appendChild(el("p", "co-about", c.about));
 
-        const qs = el("details", "qs");
-        qs.appendChild(el("summary", null, "Questions to ask"));
-        const ol = el("ol");
-        c.questions.forEach((q) => ol.appendChild(el("li", null, q)));
-        qs.appendChild(ol);
-        card.appendChild(qs);
+        const topics = el("div", "topics");
+        topics.appendChild(el("strong", null, "Ask about"));
+        const tagList = el("ul");
+        c.topics.forEach((t) => tagList.appendChild(el("li", null, t)));
+        topics.appendChild(tagList);
+        card.appendChild(topics);
 
         const actions = el("div", "actions");
         actions.appendChild(btn(st.mine ? "On my list" : "Add to my list", st.mine ? "on" : "main", () => {
