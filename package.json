@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "description": "Turn quick voice notes from conference conversations into organized contacts with AI.",
   "type": "module",
-  "private": true
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
 }
